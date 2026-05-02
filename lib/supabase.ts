@@ -16,17 +16,21 @@ export type Message = {
   created_at: string
 }
 
-export type KnowledgeRecord = {
+export type Operation = {
   id: number
-  source_phone: string
-  action: string
-  timing: string
-  plot: string
-  variety: string
-  materials: string
-  supplier: string
-  cost: string
-  nuances: string
+  operation_type: string
+  season_year: string | null
+  date_start: string | null
+  date_end: string | null
+  timing_desc: string | null
+  plot_names: string | null
+  variety: string | null
+  executor: string | null
+  supplier_name: string | null
+  cost_total: number | null
+  cost_per_dunam: number | null
+  notes: string | null
+  source: string | null
   approved: boolean
   created_at: string
 }

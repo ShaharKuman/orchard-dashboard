@@ -471,7 +471,7 @@ export default function Dashboard() {
                     return (
                       <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isBot ? 'flex-end' : 'flex-start' }}>
                         <div style={{ fontSize: 11, color: '#2a4a2a', marginBottom: 3 }}>
-                          {isBot ? 'סוכן' : getUserName(msg.from_phone)} · {new Date(msg.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                          {isBot ? 'סוכן' : getUserName(msg.from_phone)} · {new Date(msg.created_at).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' })} {new Date(msg.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                         </div>
                         <div className={`msg-bubble ${cls}`} onClick={() => isLong && setExpandedMsg(isExp ? null : msg.id)} style={{ cursor: isLong ? 'pointer' : 'default' }}>
                           {isLong && !isExp ? msg.content.slice(0, 220) + '...' : msg.content}

@@ -4,7 +4,13 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase, getUserName, USERS, type Message, type Operation, type Insight } from '@/lib/supabase'
 import { Sprout, CheckCircle, XCircle, RefreshCw, Send, ChevronDown, ChevronUp, Pencil, X } from 'lucide-react'
 
-type Tab = 'conversations' | 'knowledge' | 'insights' | 'gantt'
+type Tab = 'conversations' | 'knowledge' | 'concepts' | 'insights' | 'gantt'
+
+type Concept = {
+  id: number; category: string; topic: string; content: string
+  variety: string | null; valid_from: string | null; approved: boolean
+  superseded_by: number | null; source: string | null; created_at: string; message_id: number | null
+}
 
 type Plot = { id: number; name: string; area_dunam: number; variety: string }
 
@@ -21,6 +27,11 @@ const BLANK_EDIT: EditData = {
 }
 
 const OP_TYPES = ['ריסוס', 'דישון', 'השקיה', 'גיזום', 'קטיף', 'דילול', 'חיגור', 'טיפול_קרקע', 'בדיקה', 'ייעוץ', 'אחר']
+
+const CAT_COLOR: Record<string, string> = {
+  'השקיה': '#06b6d4', 'גיזום': '#f59e0b', 'ריסוס': '#ea580c',
+  'דישון': '#0ea5e9', 'קטיף': '#16a34a', 'אחר': '#6b7280',
+}
 
 const OP_COLOR: Record<string, string> = {
   'קטיף': '#16a34a', 'דילול': '#7c3aed', 'ריסוס': '#ea580c',
@@ -207,12 +218,13 @@ export default function Dashboard() {
   const [operations, setOperations] = useState<Operation[]>([])
   const [plots, setPlots]       = useState<Plot[]>([])
   const [insights, setInsights] = useState<Insight[]>([])
+  const [concepts, setConcepts] = useState<Concept[]>([])
   const [loading, setLoading]   = useState(true)
   const [selectedPhone, setSelectedPhone] = useState('all')
   const [expandedMsg, setExpandedMsg]     = useState<number | null>(null)
   const [question, setQuestion] = useState('')
   const [sending, setSending]   = useState(false)
-  const [stats, setStats]       = useState({ messages: 0, records: 0, pending: 0, insights: 0 })
+  const [stats, setStats]       = useState({ messages: 0, records: 0, pending: 0, insights: 0, concepts: 0 })
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editData, setEditData]   = useState<EditData>(BLANK_EDIT)
   const [saving, setSaving]       = useState(false)
@@ -220,13 +232,14 @@ export default function Dashboard() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
-    const [m, pendingRes, approvedRes, plotsRes, plotLinksRes, iRes] = await Promise.all([
+    const [m, pendingRes, approvedRes, plotsRes, plotLinksRes, iRes, cRes] = await Promise.all([
       supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(100),
       supabase.from('operations').select('*').eq('approved', false).order('created_at', { ascending: false }),
       supabase.from('gantt_operations').select('*').order('date_start', { ascending: true }),
       supabase.from('plots').select('id, name').order('id'),
       supabase.from('operation_plots').select('operation_id, plot_id'),
       supabase.from('insights').select('*').order('created_at', { ascending: false }),
+      supabase.from('knowledge_concepts').select('*').is('superseded_by', null).order('category').order('topic'),
     ])
 
     // Build lookup: plot_id → name
@@ -259,11 +272,13 @@ export default function Dashboard() {
     setOperations(allOps)
     if (plotsRes.data) setPlots(plotsRes.data)
     if (iRes.data) setInsights(iRes.data)
+    if (cRes.data) setConcepts(cRes.data)
     setStats({
       messages: m.data?.length || 0,
       records:  (approvedRes.data || []).length,
       pending:  (pendingRes.data  || []).length,
       insights: (iRes.data || []).filter((x: Insight) => !x.reviewed).length,
+      concepts: (cRes.data || []).filter((x: any) => !x.approved).length,
     })
     setLoading(false)
   }, [])
@@ -322,6 +337,17 @@ export default function Dashboard() {
   async function deleteOperation(id: number) {
     if (!confirm('למחוק פעולה זו לצמיתות?')) return
     await supabase.from('operations').delete().eq('id', id)
+    await fetchAll()
+  }
+
+  async function approveConcept(id: number) {
+    await supabase.from('knowledge_concepts').update({ approved: true }).eq('id', id)
+    await fetchAll()
+  }
+
+  async function deleteConcept(id: number) {
+    if (!confirm('למחוק קונספט זה?')) return
+    await supabase.from('knowledge_concepts').delete().eq('id', id)
     await fetchAll()
   }
 
@@ -407,11 +433,12 @@ export default function Dashboard() {
       <div style={{ maxWidth: 1400, margin: '0 auto', padding: '32px' }}>
 
         {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 32 }}>
           {[
             { label: 'הודעות',          value: stats.messages, color: '#4ade80', onClick: () => setTab('conversations') },
             { label: 'פעולות מתועדות',  value: stats.records,  color: '#60a5fa', onClick: () => setTab('gantt') },
-            { label: 'ממתינות לאישור',  value: stats.pending,  color: '#fbbf24', onClick: () => setTab('knowledge') },
+            { label: 'פעולות לאישור',   value: stats.pending,  color: '#fbbf24', onClick: () => setTab('knowledge') },
+            { label: 'ידע לאישור',      value: stats.concepts, color: '#34d399', onClick: () => setTab('concepts') },
             { label: 'תובנות חדשות',    value: stats.insights, color: '#a78bfa', onClick: () => setTab('insights') },
           ].map(s => (
             <div key={s.label} className="stat-card clickable" onClick={s.onClick}>
@@ -428,6 +455,9 @@ export default function Dashboard() {
             ידע {stats.pending > 0 && <span style={{ background: '#ca8a04', color: '#0a0f0a', borderRadius: 10, padding: '1px 7px', fontSize: 11, marginRight: 6 }}>{stats.pending}</span>}
           </button>
           <button className={`tab ${tab === 'gantt'         ? 'active' : ''}`} onClick={() => setTab('gantt')}>גאנט</button>
+          <button className={`tab ${tab === 'concepts'      ? 'active' : ''}`} onClick={() => setTab('concepts')}>
+            ידע {stats.concepts > 0 && <span style={{ background: '#059669', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, marginRight: 6 }}>{stats.concepts}</span>}
+          </button>
           <button className={`tab ${tab === 'insights'      ? 'active' : ''}`} onClick={() => setTab('insights')}>
             תובנות {stats.insights > 0 && <span style={{ background: '#7c3aed', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 11, marginRight: 6 }}>{stats.insights}</span>}
           </button>
@@ -655,6 +685,70 @@ export default function Dashboard() {
             )}
           </div>
         )}
+
+        {/* ── CONCEPTS ─────────────────────────────────────────────────────── */}
+        {!loading && tab === 'concepts' && (() => {
+          const pending  = concepts.filter(c => !c.approved)
+          const approved = concepts.filter(c => c.approved)
+
+          // Detect duplicate topics among pending
+          const topicCount: Record<string, number> = {}
+          pending.forEach(c => { topicCount[c.topic] = (topicCount[c.topic] || 0) + 1 })
+
+          function ConceptCard({ c, showActions }: { c: Concept; showActions: boolean }) {
+            const color = CAT_COLOR[c.category] || '#6b7280'
+            const isDup = topicCount[c.topic] > 1
+            return (
+              <div style={{ background: '#0f1a0f', border: `1px solid ${isDup ? '#ca8a0433' : '#1a2f1a'}`, borderRadius: 10, padding: 16, marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ background: color + '22', color, border: `1px solid ${color}44`, borderRadius: 20, padding: '2px 10px', fontSize: 11 }}>{c.category}</span>
+                    {isDup && <span style={{ background: '#ca8a0422', color: '#fbbf24', border: '1px solid #ca8a0433', borderRadius: 20, padding: '2px 8px', fontSize: 11 }}>כפול</span>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    {c.valid_from && <span style={{ color: '#4a6a4a', fontSize: 11 }}>מ-{c.valid_from}</span>}
+                    {c.variety    && <span style={{ color: '#4a6a4a', fontSize: 11 }}>{c.variety}</span>}
+                  </div>
+                </div>
+                <div style={{ color: '#4ade80', fontWeight: 500, fontSize: 14, marginBottom: 6 }}>{c.topic}</div>
+                <div style={{ color: '#86efac', fontSize: 13, lineHeight: 1.6, marginBottom: showActions ? 12 : 0 }}>{c.content}</div>
+                {showActions && (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn" onClick={() => approveConcept(c.id)}
+                      style={{ background: '#16a34a22', color: '#4ade80', border: '1px solid #16a34a44', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <CheckCircle size={13} /> אשר
+                    </button>
+                    <button className="btn" onClick={() => deleteConcept(c.id)}
+                      style={{ background: '#2a0a0a', color: '#f87171', border: '1px solid #7f1d1d44', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <XCircle size={13} /> מחק
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          }
+
+          return (
+            <div>
+              {pending.length > 0 && (
+                <div style={{ marginBottom: 32 }}>
+                  <div style={{ color: '#34d399', fontSize: 13, fontWeight: 500, marginBottom: 16 }}>
+                    ממתין לאישור ({pending.length})
+                    {Object.values(topicCount).some(n => n > 1) && <span style={{ color: '#fbbf24', fontSize: 12, marginRight: 12 }}>⚠ ישנם כפילויות — מחק לפני אישור</span>}
+                  </div>
+                  {pending.map(c => <ConceptCard key={c.id} c={c} showActions />)}
+                </div>
+              )}
+              {approved.length > 0 && (
+                <div>
+                  <div style={{ color: '#4a6a4a', fontSize: 13, fontWeight: 500, marginBottom: 16 }}>מאושר ופעיל ({approved.length})</div>
+                  {approved.map(c => <ConceptCard key={c.id} c={c} showActions={false} />)}
+                </div>
+              )}
+              {concepts.length === 0 && <div style={{ color: '#2a4a2a', textAlign: 'center', padding: 60 }}>אין קונספטים</div>}
+            </div>
+          )
+        })()}
 
         {/* ── INSIGHTS ─────────────────────────────────────────────────────── */}
         {!loading && tab === 'insights' && (

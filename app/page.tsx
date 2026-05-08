@@ -490,6 +490,26 @@ export default function Dashboard() {
     alert('השאלה נשמרה — הסוכן ישאל את אביק בשיחה הבאה')
   }
 
+  async function initiateNow() {
+    if (!question.trim()) return
+    setSending(true)
+    try {
+      const res = await fetch('/api/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, askedBy: 'מנהל' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'שגיאה')
+      setQuestion('')
+      alert('✅ הודעה נשלחה לאביק:\n\n' + data.message)
+      await fetchAll()
+    } catch (e: any) {
+      alert('שגיאה בשליחה: ' + e.message)
+    }
+    setSending(false)
+  }
+
   const filteredMessages = selectedPhone === 'all' ? messages : messages.filter(m => m.from_phone === selectedPhone)
   const pendingOps  = operations.filter(o => !o.approved)
   const approvedOps = operations.filter(o => o.approved)
@@ -607,9 +627,13 @@ export default function Dashboard() {
                 <div style={{ color: '#4ade80', fontSize: 13, fontWeight: 500, marginBottom: 12 }}>שאל את אביק</div>
                 <textarea value={question} onChange={e => setQuestion(e.target.value)} placeholder="שאלה לשלוח לאביק..."
                   style={{ width: '100%', background: '#0a0f0a', border: '1px solid #1a2f1a', color: '#86efac', borderRadius: 8, padding: '10px 12px', fontFamily: 'inherit', fontSize: 13, minHeight: 80, outline: 'none', resize: 'none' }} />
-                <button className="btn" onClick={sendQuestion} disabled={sending || !question.trim()}
+                <button className="btn" onClick={initiateNow} disabled={sending || !question.trim()}
                   style={{ marginTop: 10, background: '#16a34a', color: '#fff', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                  <Send size={13} /> {sending ? 'שולח...' : 'שמור שאלה'}
+                  <Send size={13} /> {sending ? 'שולח...' : 'שלח עכשיו לאביק'}
+                </button>
+                <button className="btn" onClick={sendQuestion} disabled={sending || !question.trim()}
+                  style={{ marginTop: 8, background: '#1e3a1e', color: '#86efac', border: '1px solid #2a5a2a', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <Send size={13} /> שמור לשיחה הבאה
                 </button>
               </div>
             </div>

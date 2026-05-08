@@ -212,6 +212,101 @@ function OpReadView({ op, showSource = false }: { op: any; showSource?: boolean 
   )
 }
 
+const CONCEPT_CATEGORIES = ['השקיה', 'ריסוס', 'דישון', 'גיזום', 'קטיף', 'אחר']
+
+type ConceptEditData = { category: string; topic: string; content: string; variety: string; valid_from: string }
+const BLANK_CONCEPT: ConceptEditData = { category: '', topic: '', content: '', variety: '', valid_from: '' }
+
+type ConceptCardProps = {
+  c: Concept
+  isDup: boolean
+  isEditing: boolean
+  editData: ConceptEditData
+  setEditData: React.Dispatch<React.SetStateAction<ConceptEditData>>
+  savingConcept: boolean
+  onEdit: () => void
+  onSave: () => void
+  onCancel: () => void
+  onApprove: () => void
+  onDelete: () => void
+}
+
+function ConceptCard({ c, isDup, isEditing, editData, setEditData, savingConcept, onEdit, onSave, onCancel, onApprove, onDelete }: ConceptCardProps) {
+  const color = CAT_COLOR[c.category] || '#6b7280'
+  return (
+    <div style={{ background: '#0f1a0f', border: `1px solid ${isDup ? '#ca8a0433' : '#1a2f1a'}`, borderRadius: 10, padding: 16, marginBottom: 10 }}>
+      {isEditing ? (
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+            <div>
+              <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>קטגוריה</div>
+              <input list="concept-cats" value={editData.category} onChange={e => setEditData(d => ({ ...d, category: e.target.value }))} style={inputStyle} />
+              <datalist id="concept-cats">{CONCEPT_CATEGORIES.map(c => <option key={c} value={c} />)}</datalist>
+            </div>
+            <div>
+              <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>תקף מ-</div>
+              <input value={editData.valid_from} onChange={e => setEditData(d => ({ ...d, valid_from: e.target.value }))} style={inputStyle} placeholder="2025" />
+            </div>
+            <div style={{ gridColumn: '1/-1' }}>
+              <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>נושא</div>
+              <input value={editData.topic} onChange={e => setEditData(d => ({ ...d, topic: e.target.value }))} style={inputStyle} />
+            </div>
+            <div style={{ gridColumn: '1/-1' }}>
+              <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>תוכן</div>
+              <textarea value={editData.content} onChange={e => setEditData(d => ({ ...d, content: e.target.value }))} rows={5} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+            <div style={{ gridColumn: '1/-1' }}>
+              <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>זן</div>
+              <input value={editData.variety} onChange={e => setEditData(d => ({ ...d, variety: e.target.value }))} style={inputStyle} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn" onClick={onSave} disabled={savingConcept}
+              style={{ background: '#1e3a5f', color: '#93c5fd', border: '1px solid #2563eb44', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CheckCircle size={13} /> {savingConcept ? 'שומר...' : 'שמור'}
+            </button>
+            <button className="btn" onClick={onCancel}
+              style={{ background: '#1a1a1a', color: '#6a6a6a', border: '1px solid #33333344', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <X size={13} /> ביטול
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ background: color + '22', color, border: `1px solid ${color}44`, borderRadius: 20, padding: '2px 10px', fontSize: 11 }}>{c.category}</span>
+              {isDup && <span style={{ background: '#ca8a0422', color: '#fbbf24', border: '1px solid #ca8a0433', borderRadius: 20, padding: '2px 8px', fontSize: 11 }}>כפול</span>}
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {c.valid_from && <span style={{ color: '#4a6a4a', fontSize: 11 }}>מ-{c.valid_from}</span>}
+              {c.variety    && <span style={{ color: '#4a6a4a', fontSize: 11 }}>{c.variety}</span>}
+            </div>
+          </div>
+          <div style={{ color: '#4ade80', fontWeight: 500, fontSize: 14, marginBottom: 6 }}>{c.topic}</div>
+          <div style={{ color: '#86efac', fontSize: 13, lineHeight: 1.6, marginBottom: 12 }}>{c.content}</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {!c.approved && (
+              <button className="btn" onClick={onApprove}
+                style={{ background: '#16a34a22', color: '#4ade80', border: '1px solid #16a34a44', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CheckCircle size={13} /> אשר
+              </button>
+            )}
+            <button className="btn" onClick={onEdit}
+              style={{ background: '#1e2a3f', color: '#93c5fd', border: '1px solid #2563eb33', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Pencil size={13} /> ערוך
+            </button>
+            <button className="btn" onClick={onDelete}
+              style={{ background: '#2a0a0a', color: '#f87171', border: '1px solid #7f1d1d44', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <XCircle size={13} /> מחק
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [tab, setTab]           = useState<Tab>('conversations')
   const [messages, setMessages] = useState<Message[]>([])
@@ -229,6 +324,9 @@ export default function Dashboard() {
   const [editData, setEditData]   = useState<EditData>(BLANK_EDIT)
   const [saving, setSaving]       = useState(false)
   const [ganttYear, setGanttYear] = useState(2026)
+  const [editingConceptId, setEditingConceptId] = useState<number | null>(null)
+  const [conceptEditData, setConceptEditData]   = useState<ConceptEditData>(BLANK_CONCEPT)
+  const [savingConcept, setSavingConcept]       = useState(false)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -348,6 +446,32 @@ export default function Dashboard() {
   async function deleteConcept(id: number) {
     if (!confirm('למחוק קונספט זה?')) return
     await supabase.from('knowledge_concepts').delete().eq('id', id)
+    await fetchAll()
+  }
+
+  function startConceptEdit(c: Concept) {
+    setEditingConceptId(c.id)
+    setConceptEditData({
+      category:   c.category   || '',
+      topic:      c.topic      || '',
+      content:    c.content    || '',
+      variety:    c.variety    || '',
+      valid_from: c.valid_from || '',
+    })
+  }
+
+  async function saveConceptEdit() {
+    if (!editingConceptId) return
+    setSavingConcept(true)
+    await supabase.from('knowledge_concepts').update({
+      category:   conceptEditData.category   || null,
+      topic:      conceptEditData.topic      || null,
+      content:    conceptEditData.content    || null,
+      variety:    conceptEditData.variety    || null,
+      valid_from: conceptEditData.valid_from || null,
+    }).eq('id', editingConceptId)
+    setEditingConceptId(null)
+    setSavingConcept(false)
     await fetchAll()
   }
 
@@ -695,37 +819,9 @@ export default function Dashboard() {
           const topicCount: Record<string, number> = {}
           pending.forEach(c => { topicCount[c.topic] = (topicCount[c.topic] || 0) + 1 })
 
-          function ConceptCard({ c, showActions }: { c: Concept; showActions: boolean }) {
-            const color = CAT_COLOR[c.category] || '#6b7280'
-            const isDup = topicCount[c.topic] > 1
-            return (
-              <div style={{ background: '#0f1a0f', border: `1px solid ${isDup ? '#ca8a0433' : '#1a2f1a'}`, borderRadius: 10, padding: 16, marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ background: color + '22', color, border: `1px solid ${color}44`, borderRadius: 20, padding: '2px 10px', fontSize: 11 }}>{c.category}</span>
-                    {isDup && <span style={{ background: '#ca8a0422', color: '#fbbf24', border: '1px solid #ca8a0433', borderRadius: 20, padding: '2px 8px', fontSize: 11 }}>כפול</span>}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    {c.valid_from && <span style={{ color: '#4a6a4a', fontSize: 11 }}>מ-{c.valid_from}</span>}
-                    {c.variety    && <span style={{ color: '#4a6a4a', fontSize: 11 }}>{c.variety}</span>}
-                  </div>
-                </div>
-                <div style={{ color: '#4ade80', fontWeight: 500, fontSize: 14, marginBottom: 6 }}>{c.topic}</div>
-                <div style={{ color: '#86efac', fontSize: 13, lineHeight: 1.6, marginBottom: showActions ? 12 : 0 }}>{c.content}</div>
-                {showActions && (
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn" onClick={() => approveConcept(c.id)}
-                      style={{ background: '#16a34a22', color: '#4ade80', border: '1px solid #16a34a44', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <CheckCircle size={13} /> אשר
-                    </button>
-                    <button className="btn" onClick={() => deleteConcept(c.id)}
-                      style={{ background: '#2a0a0a', color: '#f87171', border: '1px solid #7f1d1d44', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <XCircle size={13} /> מחק
-                    </button>
-                  </div>
-                )}
-              </div>
-            )
+          const cardProps = {
+            editData: conceptEditData, setEditData: setConceptEditData,
+            savingConcept, onSave: saveConceptEdit, onCancel: () => setEditingConceptId(null),
           }
 
           return (
@@ -736,13 +832,25 @@ export default function Dashboard() {
                     ממתין לאישור ({pending.length})
                     {Object.values(topicCount).some(n => n > 1) && <span style={{ color: '#fbbf24', fontSize: 12, marginRight: 12 }}>⚠ ישנם כפילויות — מחק לפני אישור</span>}
                   </div>
-                  {pending.map(c => <ConceptCard key={c.id} c={c} showActions />)}
+                  {pending.map(c => (
+                    <ConceptCard key={c.id} c={c} isDup={topicCount[c.topic] > 1}
+                      isEditing={editingConceptId === c.id} {...cardProps}
+                      onEdit={() => startConceptEdit(c)}
+                      onApprove={() => approveConcept(c.id)}
+                      onDelete={() => deleteConcept(c.id)} />
+                  ))}
                 </div>
               )}
               {approved.length > 0 && (
                 <div>
                   <div style={{ color: '#4a6a4a', fontSize: 13, fontWeight: 500, marginBottom: 16 }}>מאושר ופעיל ({approved.length})</div>
-                  {approved.map(c => <ConceptCard key={c.id} c={c} showActions={false} />)}
+                  {approved.map(c => (
+                    <ConceptCard key={c.id} c={c} isDup={false}
+                      isEditing={editingConceptId === c.id} {...cardProps}
+                      onEdit={() => startConceptEdit(c)}
+                      onApprove={() => approveConcept(c.id)}
+                      onDelete={() => deleteConcept(c.id)} />
+                  ))}
                 </div>
               )}
               {concepts.length === 0 && <div style={{ color: '#2a4a2a', textAlign: 'center', padding: 60 }}>אין קונספטים</div>}

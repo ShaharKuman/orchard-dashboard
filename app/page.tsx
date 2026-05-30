@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase, getUserName, USERS, type Message, type Operation, type Insight } from '@/lib/supabase'
-import { Sprout, CheckCircle, XCircle, RefreshCw, Send, ChevronDown, ChevronUp, Pencil, X } from 'lucide-react'
+import { Sprout, CheckCircle, XCircle, RefreshCw, Send, ChevronDown, ChevronUp, Pencil, X, Plus } from 'lucide-react'
 
 type Tab = 'conversations' | 'knowledge' | 'concepts' | 'insights' | 'gantt'
 
@@ -105,9 +105,10 @@ type EditFormProps = {
   onSave: (id: number) => void
   onCancel: () => void
   plots?: Plot[]
+  saveLabel?: string
 }
 
-function EditForm({ id, editData, setEditData, saving, onSave, onCancel, plots = [] }: EditFormProps) {
+function EditForm({ id, editData, setEditData, saving, onSave, onCancel, plots = [], saveLabel = 'שמור שינויים' }: EditFormProps) {
   function field(key: keyof EditData) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
       setEditData(d => ({ ...d, [key]: e.target.value }))
@@ -181,7 +182,7 @@ function EditForm({ id, editData, setEditData, saving, onSave, onCancel, plots =
       <div style={{ display: 'flex', gap: 8 }}>
         <button className="btn" onClick={() => onSave(id)} disabled={saving}
           style={{ background: '#1e3a5f', color: '#93c5fd', border: '1px solid #2563eb44', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <CheckCircle size={13} /> {saving ? 'שומר...' : 'שמור שינויים'}
+          <CheckCircle size={13} /> {saving ? 'שומר...' : saveLabel}
         </button>
         <button className="btn" onClick={onCancel}
           style={{ background: '#1a1a1a', color: '#6a6a6a', border: '1px solid #33333344', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -216,6 +217,9 @@ const CONCEPT_CATEGORIES = ['השקיה', 'ריסוס', 'דישון', 'גיזו�
 
 type ConceptEditData = { category: string; topic: string; content: string; variety: string; valid_from: string }
 const BLANK_CONCEPT: ConceptEditData = { category: '', topic: '', content: '', variety: '', valid_from: '' }
+
+type InsightEditData = { topic: string; avik_method: string; alternative: string }
+const BLANK_INSIGHT: InsightEditData = { topic: '', avik_method: '', alternative: '' }
 
 type ConceptCardProps = {
   c: Concept
@@ -307,6 +311,165 @@ function ConceptCard({ c, isDup, isEditing, editData, setEditData, savingConcept
   )
 }
 
+type InsightCardProps = {
+  ins: Insight
+  isEditing: boolean
+  editData: InsightEditData
+  setEditData: React.Dispatch<React.SetStateAction<InsightEditData>>
+  saving: boolean
+  onEdit: () => void
+  onSave: () => void
+  onCancel: () => void
+  onMarkReviewed: () => void
+  onDelete: () => void
+}
+
+function InsightCard({ ins, isEditing, editData, setEditData, saving, onEdit, onSave, onCancel, onMarkReviewed, onDelete }: InsightCardProps) {
+  return (
+    <div style={{ background: '#0f1a0f', border: `1px solid ${isEditing ? '#2563eb44' : '#ca8a0433'}`, borderRadius: 10, padding: 16, marginBottom: 12 }}>
+      {isEditing ? (
+        <div>
+          <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
+            <div>
+              <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>נושא</div>
+              <input value={editData.topic} onChange={e => setEditData(d => ({ ...d, topic: e.target.value }))} style={inputStyle} />
+            </div>
+            <div>
+              <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>שיטת אביק</div>
+              <textarea value={editData.avik_method} onChange={e => setEditData(d => ({ ...d, avik_method: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+            <div>
+              <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>חלופה / הערה</div>
+              <textarea value={editData.alternative} onChange={e => setEditData(d => ({ ...d, alternative: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn" onClick={onSave} disabled={saving}
+              style={{ background: '#1e3a5f', color: '#93c5fd', border: '1px solid #2563eb44', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <CheckCircle size={13} /> {saving ? 'שומר...' : 'שמור'}
+            </button>
+            <button className="btn" onClick={onCancel}
+              style={{ background: '#1a1a1a', color: '#6a6a6a', border: '1px solid #33333344', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <X size={13} /> ביטול
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ color: '#fbbf24', fontWeight: 500 }}>{ins.topic}</div>
+            {!ins.reviewed && <span style={{ background: '#ca8a0422', color: '#fbbf24', border: '1px solid #ca8a0433', borderRadius: 20, padding: '2px 10px', fontSize: 12 }}>חדש</span>}
+          </div>
+          <div className="field-row" style={{ marginBottom: 8 }}><span className="field-label">שיטת אביק:</span><span className="field-value">{ins.avik_method}</span></div>
+          <div className="field-row" style={{ marginBottom: 12 }}><span className="field-label">חלופה:</span><span style={{ color: '#a78bfa' }}>{ins.alternative}</span></div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {!ins.reviewed && (
+              <button className="btn" onClick={onMarkReviewed} style={{ background: '#1a1a2e', color: '#a78bfa', border: '1px solid #7c3aed33', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CheckCircle size={13} /> סמן כנצפה
+              </button>
+            )}
+            <button className="btn" onClick={onEdit} style={{ background: '#1e2a3f', color: '#93c5fd', border: '1px solid #2563eb33', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Pencil size={13} /> ערוך
+            </button>
+            <button className="btn" onClick={onDelete} style={{ background: '#2a0a0a', color: '#f87171', border: '1px solid #7f1d1d44', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <XCircle size={13} /> מחק
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+type NewInsightPanelProps = {
+  data: InsightEditData
+  setData: React.Dispatch<React.SetStateAction<InsightEditData>>
+  saving: boolean
+  onCreate: () => void
+  onCancel: () => void
+}
+
+function NewInsightPanel({ data, setData, saving, onCreate, onCancel }: NewInsightPanelProps) {
+  return (
+    <div style={{ background: '#0f1a0f', border: '1px solid #7c3aed44', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+      <div style={{ color: '#a78bfa', fontSize: 13, fontWeight: 500, marginBottom: 12 }}>תובנה חדשה</div>
+      <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
+        <div>
+          <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>נושא</div>
+          <input value={data.topic} onChange={e => setData(d => ({ ...d, topic: e.target.value }))} style={inputStyle} placeholder="למשל: תזמון גיזום" />
+        </div>
+        <div>
+          <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>שיטת אביק</div>
+          <textarea value={data.avik_method} onChange={e => setData(d => ({ ...d, avik_method: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} placeholder="מה אביק עושה..." />
+        </div>
+        <div>
+          <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>חלופה / הערה</div>
+          <textarea value={data.alternative} onChange={e => setData(d => ({ ...d, alternative: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} placeholder="חלופה מקובלת בתעשייה..." />
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn" onClick={onCreate} disabled={saving || !data.topic.trim()}
+          style={{ background: '#4c1d95', color: '#c4b5fd', border: '1px solid #7c3aed44', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Plus size={13} /> {saving ? 'שומר...' : 'צור תובנה'}
+        </button>
+        <button className="btn" onClick={onCancel}
+          style={{ background: '#1a1a1a', color: '#6a6a6a', border: '1px solid #33333344', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <X size={13} /> ביטול
+        </button>
+      </div>
+    </div>
+  )
+}
+
+type NewConceptPanelProps = {
+  data: ConceptEditData
+  setData: React.Dispatch<React.SetStateAction<ConceptEditData>>
+  saving: boolean
+  onCreate: () => void
+  onCancel: () => void
+}
+
+function NewConceptPanel({ data, setData, saving, onCreate, onCancel }: NewConceptPanelProps) {
+  return (
+    <div style={{ background: '#0f1a0f', border: '1px solid #059669aa', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+      <div style={{ color: '#34d399', fontSize: 13, fontWeight: 500, marginBottom: 12 }}>קונספט חדש</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+        <div>
+          <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>קטגוריה</div>
+          <input list="new-concept-cats" value={data.category} onChange={e => setData(d => ({ ...d, category: e.target.value }))} style={inputStyle} />
+          <datalist id="new-concept-cats">{CONCEPT_CATEGORIES.map(c => <option key={c} value={c} />)}</datalist>
+        </div>
+        <div>
+          <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>תקף מ-</div>
+          <input value={data.valid_from} onChange={e => setData(d => ({ ...d, valid_from: e.target.value }))} style={inputStyle} placeholder="2025" />
+        </div>
+        <div style={{ gridColumn: '1/-1' }}>
+          <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>נושא</div>
+          <input value={data.topic} onChange={e => setData(d => ({ ...d, topic: e.target.value }))} style={inputStyle} placeholder="שם הקונספט" />
+        </div>
+        <div style={{ gridColumn: '1/-1' }}>
+          <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>תוכן</div>
+          <textarea value={data.content} onChange={e => setData(d => ({ ...d, content: e.target.value }))} rows={4} style={{ ...inputStyle, resize: 'vertical' }} />
+        </div>
+        <div style={{ gridColumn: '1/-1' }}>
+          <div style={{ color: '#4a6a4a', fontSize: 11, marginBottom: 4 }}>זן</div>
+          <input value={data.variety} onChange={e => setData(d => ({ ...d, variety: e.target.value }))} style={inputStyle} />
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn" onClick={onCreate} disabled={saving || !data.topic.trim()}
+          style={{ background: '#064e3b', color: '#34d399', border: '1px solid #05966944', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Plus size={13} /> {saving ? 'שומר...' : 'צור קונספט'}
+        </button>
+        <button className="btn" onClick={onCancel}
+          style={{ background: '#1a1a1a', color: '#6a6a6a', border: '1px solid #33333344', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <X size={13} /> ביטול
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [tab, setTab]           = useState<Tab>('conversations')
   const [messages, setMessages] = useState<Message[]>([])
@@ -327,6 +490,18 @@ export default function Dashboard() {
   const [editingConceptId, setEditingConceptId] = useState<number | null>(null)
   const [conceptEditData, setConceptEditData]   = useState<ConceptEditData>(BLANK_CONCEPT)
   const [savingConcept, setSavingConcept]       = useState(false)
+  const [editingInsightId, setEditingInsightId] = useState<number | null>(null)
+  const [insightEditData, setInsightEditData]   = useState<InsightEditData>(BLANK_INSIGHT)
+  const [savingInsight, setSavingInsight]       = useState(false)
+  const [showNewOp, setShowNewOp]               = useState(false)
+  const [newOpData, setNewOpData]               = useState<EditData>(BLANK_EDIT)
+  const [creatingOp, setCreatingOp]             = useState(false)
+  const [showNewInsight, setShowNewInsight]     = useState(false)
+  const [newInsightData, setNewInsightData]     = useState<InsightEditData>(BLANK_INSIGHT)
+  const [creatingInsight, setCreatingInsight]   = useState(false)
+  const [showNewConcept, setShowNewConcept]     = useState(false)
+  const [newConceptData, setNewConceptData]     = useState<ConceptEditData>(BLANK_CONCEPT)
+  const [creatingConcept, setCreatingConcept]   = useState(false)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -472,6 +647,92 @@ export default function Dashboard() {
     }).eq('id', editingConceptId)
     setEditingConceptId(null)
     setSavingConcept(false)
+    await fetchAll()
+  }
+
+  async function createOperation() {
+    if (!newOpData.operation_type.trim()) return
+    setCreatingOp(true)
+    const { data: row } = await supabase.from('operations').insert([{
+      operation_type: newOpData.operation_type || null,
+      season_year:    newOpData.season_year    || null,
+      date_start:     newOpData.date_start     || null,
+      date_end:       newOpData.date_end       || null,
+      timing_desc:    newOpData.timing_desc    || null,
+      variety:        newOpData.variety        || null,
+      executor:       newOpData.executor       || null,
+      notes:          newOpData.notes          || null,
+      cost_total:     newOpData.cost_total     ? parseFloat(newOpData.cost_total)     : null,
+      cost_per_dunam: newOpData.cost_per_dunam ? parseFloat(newOpData.cost_per_dunam) : null,
+      approved:       true,
+      source:         'dashboard',
+    }]).select('id').single()
+    if (row?.id) {
+      const plotIds = newOpData.plot_ids.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n > 0)
+      if (plotIds.length > 0)
+        await supabase.from('operation_plots').insert(plotIds.map(pid => ({ operation_id: row.id, plot_id: pid })))
+    }
+    setShowNewOp(false)
+    setNewOpData(BLANK_EDIT)
+    setCreatingOp(false)
+    await fetchAll()
+  }
+
+  function startInsightEdit(ins: Insight) {
+    setEditingInsightId(ins.id)
+    setInsightEditData({ topic: ins.topic || '', avik_method: ins.avik_method || '', alternative: ins.alternative || '' })
+  }
+
+  async function saveInsightEdit() {
+    if (!editingInsightId) return
+    setSavingInsight(true)
+    await supabase.from('insights').update({
+      topic:       insightEditData.topic       || null,
+      avik_method: insightEditData.avik_method || null,
+      alternative: insightEditData.alternative || null,
+    }).eq('id', editingInsightId)
+    setEditingInsightId(null)
+    setSavingInsight(false)
+    await fetchAll()
+  }
+
+  async function deleteInsight(id: number) {
+    if (!confirm('למחוק תובנה זו לצמיתות?')) return
+    await supabase.from('insights').delete().eq('id', id)
+    await fetchAll()
+  }
+
+  async function createInsight() {
+    if (!newInsightData.topic.trim()) return
+    setCreatingInsight(true)
+    await supabase.from('insights').insert([{
+      topic:        newInsightData.topic       || null,
+      avik_method:  newInsightData.avik_method || null,
+      alternative:  newInsightData.alternative || null,
+      reviewed:     true,
+      source_phone: 'whatsapp:+972543300964',
+    }])
+    setShowNewInsight(false)
+    setNewInsightData(BLANK_INSIGHT)
+    setCreatingInsight(false)
+    await fetchAll()
+  }
+
+  async function createConcept() {
+    if (!newConceptData.topic.trim()) return
+    setCreatingConcept(true)
+    await supabase.from('knowledge_concepts').insert([{
+      category:   newConceptData.category   || null,
+      topic:      newConceptData.topic      || null,
+      content:    newConceptData.content    || null,
+      variety:    newConceptData.variety    || null,
+      valid_from: newConceptData.valid_from || null,
+      approved:   true,
+      source:     'dashboard',
+    }])
+    setShowNewConcept(false)
+    setNewConceptData(BLANK_CONCEPT)
+    setCreatingConcept(false)
     await fetchAll()
   }
 
@@ -794,9 +1055,21 @@ export default function Dashboard() {
             </div>
 
             {/* Operations Grid */}
-            <div style={{ color: '#4ade80', fontSize: 13, fontWeight: 500, marginBottom: 16 }}>
-              כל הפעולות המאושרות ({approvedOps.length})
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ color: '#4ade80', fontSize: 13, fontWeight: 500 }}>כל הפעולות המאושרות ({approvedOps.length})</div>
+              <button className="btn" onClick={() => { setShowNewOp(v => !v); setNewOpData(BLANK_EDIT) }}
+                style={{ background: '#16a34a22', color: '#4ade80', border: '1px solid #16a34a44', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Plus size={13} /> הוסף פעולה
+              </button>
             </div>
+            {showNewOp && (
+              <div className="record-card" style={{ border: '1px solid #16a34a66', marginBottom: 16 }}>
+                <div style={{ color: '#4ade80', fontSize: 13, fontWeight: 500, marginBottom: 12 }}>פעולה חדשה</div>
+                <EditForm id={0} editData={newOpData} setEditData={setNewOpData} saving={creatingOp}
+                  onSave={() => createOperation()} onCancel={() => { setShowNewOp(false); setNewOpData(BLANK_EDIT) }}
+                  plots={plots} saveLabel="צור פעולה" />
+              </div>
+            )}
 
             {approvedOps.length === 0
               ? <div style={{ color: '#2a4a2a', textAlign: 'center', padding: 60 }}>אין פעולות מאושרות עדיין</div>
@@ -850,6 +1123,16 @@ export default function Dashboard() {
 
           return (
             <div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+                <button className="btn" onClick={() => { setShowNewConcept(v => !v); setNewConceptData(BLANK_CONCEPT) }}
+                  style={{ background: '#064e3b22', color: '#34d399', border: '1px solid #05966944', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Plus size={13} /> הוסף קונספט
+                </button>
+              </div>
+              {showNewConcept && (
+                <NewConceptPanel data={newConceptData} setData={setNewConceptData} saving={creatingConcept}
+                  onCreate={createConcept} onCancel={() => { setShowNewConcept(false); setNewConceptData(BLANK_CONCEPT) }} />
+              )}
               {pending.length > 0 && (
                 <div style={{ marginBottom: 32 }}>
                   <div style={{ color: '#34d399', fontSize: 13, fontWeight: 500, marginBottom: 16 }}>
@@ -885,22 +1168,28 @@ export default function Dashboard() {
         {/* ── INSIGHTS ─────────────────────────────────────────────────────── */}
         {!loading && tab === 'insights' && (
           <div>
-            {insights.length === 0
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+              <button className="btn" onClick={() => { setShowNewInsight(v => !v); setNewInsightData(BLANK_INSIGHT) }}
+                style={{ background: '#4c1d9522', color: '#a78bfa', border: '1px solid #7c3aed44', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Plus size={13} /> הוסף תובנה
+              </button>
+            </div>
+            {showNewInsight && (
+              <NewInsightPanel data={newInsightData} setData={setNewInsightData} saving={creatingInsight}
+                onCreate={createInsight} onCancel={() => { setShowNewInsight(false); setNewInsightData(BLANK_INSIGHT) }} />
+            )}
+            {insights.length === 0 && !showNewInsight
               ? <div style={{ color: '#2a4a2a', textAlign: 'center', padding: 60 }}>עדיין אין תובנות</div>
               : insights.map(ins => (
-                  <div key={ins.id} style={{ background: '#0f1a0f', border: '1px solid #ca8a0433', borderRadius: 10, padding: 16, marginBottom: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <div style={{ color: '#fbbf24', fontWeight: 500 }}>{ins.topic}</div>
-                      {!ins.reviewed && <span style={{ background: '#ca8a0422', color: '#fbbf24', border: '1px solid #ca8a0433', borderRadius: 20, padding: '2px 10px', fontSize: 12 }}>חדש</span>}
-                    </div>
-                    <div className="field-row" style={{ marginBottom: 8 }}><span className="field-label">שיטת אביק:</span><span className="field-value">{ins.avik_method}</span></div>
-                    <div className="field-row" style={{ marginBottom: 12 }}><span className="field-label">חלופה:</span><span style={{ color: '#a78bfa' }}>{ins.alternative}</span></div>
-                    {!ins.reviewed && (
-                      <button className="btn" onClick={() => markInsightReviewed(ins.id)} style={{ background: '#1a1a2e', color: '#a78bfa', border: '1px solid #7c3aed33', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <CheckCircle size={13} /> סמן כנצפה
-                      </button>
-                    )}
-                  </div>
+                  <InsightCard key={ins.id} ins={ins}
+                    isEditing={editingInsightId === ins.id}
+                    editData={insightEditData} setEditData={setInsightEditData}
+                    saving={savingInsight}
+                    onEdit={() => startInsightEdit(ins)}
+                    onSave={saveInsightEdit}
+                    onCancel={() => setEditingInsightId(null)}
+                    onMarkReviewed={() => markInsightReviewed(ins.id)}
+                    onDelete={() => deleteInsight(ins.id)} />
                 ))}
           </div>
         )}
